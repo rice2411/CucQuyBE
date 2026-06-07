@@ -1,0 +1,11 @@
+node_modules
+dist
+.git
+*.log
+.DS_Store
+# Secret — KHÔNG đưa vào image (mount qua volume / dùng env khi chạy)
+.env
+.env.local
+service_account.json
+serviceAccount*.json
+firebase-service-account*.json

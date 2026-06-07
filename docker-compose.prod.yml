@@ -1,0 +1,18 @@
+# BE production trên VPS — build từ Dockerfile (image gọn, --omit=dev).
+# Chỉ bind 127.0.0.1:3000 → nginx host reverse-proxy ra ngoài (HTTPS).
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Cần cùng thư mục: .env (điền đủ secret) + service_account.json
+
+services:
+  backend:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # service_account.json đọc lúc chạy, KHÔNG nằm trong image
+      - ./service_account.json:/app/service_account.json:ro
+    restart: unless-stopped
