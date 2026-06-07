@@ -1,7 +1,9 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { RevenueService } from './revenue.service';
 
+@ApiTags('Báo cáo doanh thu')
 @Controller('revenue')
 @UseGuards(FirebaseAuthGuard)
 export class RevenueController {

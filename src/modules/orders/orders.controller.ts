@@ -8,11 +8,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { AuthUser } from '../../auth/user.types';
 import { OrdersService } from './orders.service';
 
+@ApiTags('Đơn hàng')
 @Controller('orders')
 @UseGuards(FirebaseAuthGuard)
 export class OrdersController {

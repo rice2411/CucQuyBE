@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Put, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { AuthUser } from '../../auth/user.types';
@@ -12,6 +13,7 @@ import {
   ZaloGroupsConfiguration,
 } from './configurations.types';
 
+@ApiTags('Cấu hình')
 @Controller('configurations')
 @UseGuards(FirebaseAuthGuard)
 export class ConfigurationsController {

@@ -1,4 +1,5 @@
 import { Body, Controller, Post, Res } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { Public } from '../../auth/roles.decorator';
 import { WebhooksService } from './webhooks.service';
@@ -8,6 +9,7 @@ import { WebhooksService } from './webhooks.service';
  * Dùng @Res() để trả ĐÚNG format gốc (bypass envelope toàn cục) — nhà cung
  * cấp webhook kỳ vọng body riêng, không phải {data,message,...}.
  */
+@ApiTags('Webhook')
 @Controller('webhooks')
 export class WebhooksController {
   constructor(private readonly service: WebhooksService) {}

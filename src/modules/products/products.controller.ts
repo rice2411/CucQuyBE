@@ -8,9 +8,11 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { ProductsService } from './products.service';
 
+@ApiTags('Sản phẩm')
 @Controller('products')
 @UseGuards(FirebaseAuthGuard)
 export class ProductsController {

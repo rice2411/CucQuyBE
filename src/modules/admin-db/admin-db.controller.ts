@@ -7,9 +7,11 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { AdminDbService } from './admin-db.service';
 
+@ApiTags('Admin DB')
 @Controller('admin-db')
 @UseGuards(FirebaseAuthGuard)
 export class AdminDbController {

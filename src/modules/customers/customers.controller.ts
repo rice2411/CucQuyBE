@@ -8,10 +8,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { Customer, CustomersService } from './customers.service';
 
 /** Khách hàng — chỉ cần đăng nhập (CTV cũng tạo được khách hàng). */
+@ApiTags('Khách hàng')
 @Controller('customers')
 @UseGuards(FirebaseAuthGuard)
 export class CustomersController {

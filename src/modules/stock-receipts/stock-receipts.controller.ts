@@ -7,6 +7,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { AuthUser } from '../../auth/user.types';
@@ -18,6 +19,7 @@ import {
   SupplierContactInfo,
 } from './stock-receipts.types';
 
+@ApiTags('Nhập kho')
 @Controller('stock-receipts')
 @UseGuards(FirebaseAuthGuard)
 export class StockReceiptsController {

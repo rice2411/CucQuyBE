@@ -1,7 +1,9 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { ZaloService, ZaloSendPayload } from './zalo.service';
 
+@ApiTags('Zalo')
 @Controller('zalo')
 @UseGuards(FirebaseAuthGuard)
 export class ZaloController {

@@ -1,7 +1,9 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { GeminiService } from './gemini.service';
 
+@ApiTags('Gemini')
 @Controller('gemini')
 @UseGuards(FirebaseAuthGuard)
 export class GeminiController {

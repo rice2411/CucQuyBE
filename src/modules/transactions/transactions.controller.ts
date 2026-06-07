@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { TransactionsService } from './transactions.service';
 import { MarkExternalDto } from './dto/mark-external.dto';
 import { LinkOrderDto } from './dto/link-order.dto';
 
+@ApiTags('Giao dịch')
 @Controller('transactions')
 @UseGuards(FirebaseAuthGuard)
 export class TransactionsController {

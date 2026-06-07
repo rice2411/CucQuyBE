@@ -7,12 +7,14 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { AuthUser } from '../../auth/user.types';
 import { UsersService } from './users.service';
 import { UserRole, UserStatus, ZaloGroupConfigInput } from './users.types';
 
+@ApiTags('Người dùng')
 @Controller('users')
 @UseGuards(FirebaseAuthGuard)
 export class UsersController {

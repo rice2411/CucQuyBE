@@ -8,11 +8,13 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { ExpensesService } from './expenses.service';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 
+@ApiTags('Chi phí')
 @Controller('expenses')
 @UseGuards(FirebaseAuthGuard)
 export class ExpensesController {

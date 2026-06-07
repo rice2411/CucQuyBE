@@ -8,9 +8,11 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { CommissionGroupsService } from './commission-groups.service';
 
+@ApiTags('Nhóm hoa hồng')
 @Controller('commission-groups')
 @UseGuards(FirebaseAuthGuard)
 export class CommissionGroupsController {

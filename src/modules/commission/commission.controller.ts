@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FirebaseAuthGuard } from '../../auth/firebase-auth.guard';
 import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
@@ -8,6 +9,7 @@ import { ResponseMessage } from '../../common/response-message.decorator';
 import { CommissionService } from './commission.service';
 import { MarkPaidDto } from './dto/mark-paid.dto';
 
+@ApiTags('Hoa hồng')
 @Controller('commission')
 @UseGuards(FirebaseAuthGuard, RolesGuard)
 export class CommissionController {
