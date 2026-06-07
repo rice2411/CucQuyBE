@@ -1,77 +1,131 @@
-# Deploy BE lên VPS (Ubuntu + domain + HTTPS)
+# Deploy Backend (NestJS) lên VPS — Hướng dẫn A→Z
 
-BE chạy trong Docker, **bind `127.0.0.1:3000`**; **nginx** trên VPS reverse-proxy
-domain → BE và cấp **HTTPS (Let's Encrypt)**. FE vẫn ở Vercel, trỏ về domain này.
+Tài liệu deploy thực tế cho **CucQuy Bakery BE**. Kiến trúc:
 
-Giả định domain API: `api.tiembanhcucquy.com` (đổi theo bạn). FE Vercel: `https://cucquy.vercel.app`.
+```
+Trình duyệt ── HTTPS ──▶ Vercel (FE: cucquy.site)
+                              │  gọi API
+                              ▼
+        HTTPS ──▶ nginx (VPS) ──▶ Docker container cucquy-backend (127.0.0.1:3000)
+                  api.cucquy.site                     │ firebase-admin
+                                                       ▼
+                                                  Firestore + Storage
+```
+
+**Thông số thực tế (đổi theo bạn):**
+- VPS IP: `45.117.179.222`
+- Domain API: `api.cucquy.site` (subdomain của `cucquy.site` — FE ở Vercel)
+- Thư mục trên VPS: `/root/cucquy/backend`
+- Repo: `https://github.com/rice2411/CucQuyBE.git`
 
 ---
 
-## 0. Chuẩn bị DNS
-Tạo bản ghi **A**: `api.tiembanhcucquy.com → <IP VPS>`. Chờ trỏ xong (`ping` ra IP VPS).
+## 0. Chuẩn bị (làm ở máy local)
 
-## 1. Cài Docker trên VPS
+Cần sẵn 2 file bí mật (KHÔNG có trong git):
+- `backend/.env` — biến môi trường + secret (Gemini/Vision/SerpApi/Zalo/SePay...).
+- `backend/service_account.json` — Firebase Admin key (Firebase Console → Project settings → Service accounts → Generate new private key).
+
+---
+
+## 1. DNS — trỏ subdomain về VPS
+
+Vào nơi quản lý DNS của `cucquy.site`, thêm bản ghi:
+
+| Type | Name | Value | TTL |
+|------|------|-------|-----|
+| A | `api` | `45.117.179.222` | 1 giờ |
+
+> `cucquy.site` (gốc) vẫn trỏ Vercel; `api.cucquy.site` trỏ VPS — 2 record độc lập.
+
+Kiểm tra (máy local), đợi tới khi ra đúng IP:
 ```bash
-ssh root@<IP_VPS>
+dig +short api.cucquy.site      # → 45.117.179.222
+```
+
+---
+
+## 2. Cài Docker trên VPS
+
+```bash
+ssh root@45.117.179.222
 curl -fsSL https://get.docker.com | sh
 docker --version && docker compose version
 ```
 
-## 2. Lấy source
+---
+
+## 3. Lấy source code
+
 ```bash
-cd /opt
+mkdir -p /root/cucquy
+cd /root/cucquy
 git clone https://github.com/rice2411/CucQuyBE.git backend
 cd backend
+ls        # thấy Dockerfile, docker-compose.prod.yml, src, package.json...
 ```
 
-## 3. Tạo 2 file bí mật (KHÔNG có trong repo)
+---
+
+## 4. Đưa 2 file secret lên VPS
+
+**Cách A — scp (chạy ở MÁY LOCAL).** Chú ý dấu `:` sau IP:
 ```bash
-# a) service account — copy từ máy bạn lên VPS:
-#    (chạy ở MÁY LOCAL)
-scp service_account.json root@<IP_VPS>:/opt/backend/service_account.json
-
-# b) .env — tạo trên VPS
-nano /opt/backend/.env
+scp /duong/dan/local/backend/.env \
+    /duong/dan/local/backend/service_account.json \
+    root@45.117.179.222:/root/cucquy/backend/
 ```
-Nội dung `.env` (điền secret thật; FIREBASE_* có thể bỏ nếu dùng service_account.json):
-```env
-PORT=3000
-ALLOWED_ORIGINS=https://cucquy.vercel.app
-FIREBASE_STORAGE_BUCKET=tiembanhcucquy-75fe1.firebasestorage.app
-SERPAPI_KEY=...
-VISION_API_KEY=...
-GEMINI_API_KEY=...
-ZALO_URL=https://new.abitstore.vn
-ZALO_SHOP_CODE=...
-ZALO_TOKEN=...
-ZALO_MAIN_GROUP_ID=...
-SEPAY_MERCHANT_ID=...
-SEPAY_SECRET_KEY=...
-```
-> Creds Firebase Admin đọc từ `service_account.json` (đã mount). Nếu muốn dùng env thay file thì set `FIREBASE_PROJECT_ID/CLIENT_EMAIL/PRIVATE_KEY`.
 
-## 4. Build & chạy BE
+**Cách B — tạo trực tiếp trên VPS** (nếu scp vướng): `nano /root/cucquy/backend/.env` rồi dán nội dung; tương tự `service_account.json`.
+
+Đặt quyền + kiểm tra (2 file phải nằm CÙNG thư mục `backend/`, cạnh `docker-compose.prod.yml`):
 ```bash
-cd /opt/backend
+cd /root/cucquy/backend
+chmod 600 .env service_account.json
+ls -la .env service_account.json
+```
+
+**Sửa `.env` cho production:**
+```bash
+nano .env
+```
+- `ALLOWED_ORIGINS=https://cucquy.site`  (domain FE — quan trọng cho CORS)
+- Đảm bảo đủ: `FIREBASE_STORAGE_BUCKET`, `GEMINI_API_KEY`, `VISION_API_KEY`, `SERPAPI_KEY`, `ZALO_*`, `SEPAY_*`.
+
+---
+
+## 5. Build & chạy Docker
+
+```bash
+cd /root/cucquy/backend
 docker compose -f docker-compose.prod.yml up -d --build
-# kiểm tra (chạy nội bộ, chưa ra ngoài):
-curl http://127.0.0.1:3000/api/health      # → {"data":{"status":"ok"...},"success":true}
-docker compose -f docker-compose.prod.yml logs -f backend
+docker compose -f docker-compose.prod.yml ps        # PORTS = 127.0.0.1:3000->3000/tcp ; NAME = cucquy-backend
+curl http://127.0.0.1:3000/api/health               # → {"...","success":true}
 ```
 
-## 5. Nginx reverse proxy + HTTPS
+Nếu lỗi, xem log:
+```bash
+docker compose -f docker-compose.prod.yml logs --tail=50
+```
+
+---
+
+## 6. Nginx + HTTPS (Let's Encrypt)
+
 ```bash
 apt update && apt install -y nginx certbot python3-certbot-nginx
+```
+
+Tạo config bằng **nano** (tránh lỗi paste heredoc):
+```bash
 nano /etc/nginx/sites-available/api
 ```
-Nội dung:
+Dán đúng đoạn này:
 ```nginx
 server {
     listen 80;
-    server_name api.tiembanhcucquy.com;
-
-    client_max_body_size 15m;   # cho upload ảnh / OCR base64
-
+    server_name api.cucquy.site;
+    client_max_body_size 15m;
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_set_header Host $host;
@@ -81,49 +135,90 @@ server {
     }
 }
 ```
-Kích hoạt + cấp SSL:
+Kích hoạt + cấp SSL (chạy TỪNG lệnh):
 ```bash
-ln -s /etc/nginx/sites-available/api /etc/nginx/sites-enabled/
-nginx -t && systemctl reload nginx
-certbot --nginx -d api.tiembanhcucquy.com      # tự thêm HTTPS + auto-renew
+ln -sf /etc/nginx/sites-available/api /etc/nginx/sites-enabled/api
+rm -f /etc/nginx/sites-enabled/default
+nginx -t                       # phải "syntax is ok" + "test is successful"
+systemctl reload nginx
+certbot --nginx -d api.cucquy.site
 ```
-Kiểm tra ngoài: `https://api.tiembanhcucquy.com/api/health`
+Certbot hỏi: email → ToS `Y` → redirect HTTP→HTTPS chọn **`2`**.
 
-## 6. Mở firewall (nếu dùng ufw)
+**Test:**
 ```bash
-ufw allow 'Nginx Full'   # 80 + 443
-ufw allow OpenSSH
-ufw enable
+curl https://api.cucquy.site/api/health
 ```
-
-## 7. Trỏ FE + tích hợp về domain mới
-- **Vercel (FE)** → Environment Variables: `VITE_API_URL=https://api.tiembanhcucquy.com/api` → redeploy FE.
-- **Firebase Console** → Authentication → Settings → **Authorized domains**: thêm domain FE Vercel (để Google login chạy).
-- **SePay dashboard** → webhook URL: `https://api.tiembanhcucquy.com/api/webhooks/sepay`
-- **Facebook service** → webhook URL: `https://api.tiembanhcucquy.com/api/webhooks/facebook`
-
-## 8. Swagger
-`https://api.tiembanhcucquy.com/api/docs`
+Trình duyệt: `https://api.cucquy.site/api/docs` (Swagger).
 
 ---
 
-## Cập nhật khi có code mới
+## 7. Nối FE + tích hợp (làm ở dashboard tương ứng)
+
+- **Vercel (FE)** → Settings → Environment Variables: `VITE_API_URL=https://api.cucquy.site/api` → **Redeploy**.
+- **Firebase Console** → Authentication → Settings → Authorized domains: thêm `cucquy.site`.
+- **SePay** dashboard → webhook URL: `https://api.cucquy.site/api/webhooks/sepay`
+- **Facebook** service → webhook URL: `https://api.cucquy.site/api/webhooks/facebook`
+- (Dọn) Trên Vercel xoá các env secret không còn cần ở FE: `GEMINI_API_KEY`, `VISION_API_KEY`, `SERPAPI_API_KEY`, `ZALO_TOKEN`, `ZALO_SHOP_CODE`, `SEPAY_*`, `VAPID_KEY`, `ZALO_MAIN_GROUP_ID` (chỉ giữ `VITE_API_URL` + `FIREBASE_*`).
+
+---
+
+## 8. Cập nhật code sau này
+
 ```bash
-cd /opt/backend
-git pull
+cd /root/cucquy/backend
+git pull origin main
 docker compose -f docker-compose.prod.yml up -d --build
 docker image prune -f          # dọn image cũ
 ```
+(`.env` + `service_account.json` được .gitignore nên `git pull` không đụng tới.)
 
-## Lệnh vận hành
+---
+
+## 9. Lệnh vận hành
+
 ```bash
 docker compose -f docker-compose.prod.yml ps          # trạng thái
-docker compose -f docker-compose.prod.yml logs -f      # log
-docker compose -f docker-compose.prod.yml restart      # restart
+docker compose -f docker-compose.prod.yml logs -f      # log realtime
+docker compose -f docker-compose.prod.yml restart      # restart (sau khi đổi .env)
 docker compose -f docker-compose.prod.yml down         # dừng
+systemctl reload nginx                                 # reload nginx
+certbot renew --dry-run                                # test auto-renew SSL
 ```
 
-## Lưu ý
-- `.env` + `service_account.json` chỉ tồn tại trên VPS, KHÔNG commit (đã .gitignore/.dockerignore).
-- `ALLOWED_ORIGINS` phải là domain FE thật (https) — sai thì trình duyệt chặn CORS.
-- Container chỉ bind `127.0.0.1` → không truy cập trực tiếp `:3000` từ internet; mọi traffic qua nginx HTTPS.
+---
+
+## 10. Lỗi thường gặp (đã gặp khi deploy)
+
+**`port is already allocated` / container PORTS trống / curl 127.0.0.1:3000 fail**
+→ Còn container cũ chiếm port 3000. Tắt thủ công rồi recreate:
+```bash
+docker ps                                  # tìm container cũ (vd backend-backend-1)
+docker stop <tên> && docker rm <tên>
+docker rmi backend-backend 2>/dev/null
+docker compose -f docker-compose.prod.yml up -d --force-recreate
+```
+
+**`scp: No such file or directory`** → thiếu dấu `:` sau IP. Đúng: `root@45.117.179.222:/root/cucquy/backend/`.
+
+**Heredoc (`cat <<EOF`) treo ở dấu `>`** → paste lỗi. Nhấn `Ctrl+C`, dùng `nano` tạo file thay vì heredoc.
+
+**Log `Thiếu cấu hình Firebase Admin`** → `.env`/`service_account.json` không nằm trong `/root/cucquy/backend/` (phải cùng thư mục `docker-compose.prod.yml`).
+
+**`service_account.json` thành thư mục rỗng** → do mount khi file chưa tồn tại. Xoá rồi đặt lại file:
+```bash
+rmdir /root/cucquy/backend/service_account.json 2>/dev/null
+# rồi scp/nano lại file
+docker compose -f docker-compose.prod.yml up -d --force-recreate
+```
+
+**certbot fail** → DNS chưa trỏ (`dig +short api.cucquy.site` chưa ra IP) hoặc port 80 bận. Đợi DNS / kiểm `nginx -t`.
+
+**FE gọi API bị CORS** → `ALLOWED_ORIGINS` trong `.env` chưa khớp domain FE (`https://cucquy.site`). Sửa rồi `restart`.
+
+---
+
+## Ghi chú bảo mật
+- `.env` + `service_account.json` **chỉ ở VPS**, không commit (đã .gitignore/.dockerignore).
+- Container bind `127.0.0.1` → không phơi port 3000 ra internet; mọi traffic qua nginx HTTPS.
+- Nếu secret từng lộ (commit/log/bundle cũ) → rotate key (Gemini, Vision, SerpApi, SePay secret, Zalo token).
