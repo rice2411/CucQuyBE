@@ -32,14 +32,31 @@ Firebase Console → Project settings → Service accounts → **Generate new pr
 
 Mọi request (trừ `@Public`) cần header `Authorization: Bearer <Firebase ID token>`.
 
+Các domain CRUD khác đều theo cùng pattern (đều cần đăng nhập): `/api/products`,
+`/api/customers`, `/api/expenses`, `/api/transactions`, `/api/categories`,
+`/api/badges`, `/api/commission-groups`, `/api/configurations/*`, `/api/users`,
+`/api/orders`, `/api/stock-receipts`, `/api/admin-db/*`, `/api/images/*`.
+
+### Webhook (PUBLIC — không cần token)
+| Method | Path | Mô tả |
+|---|---|---|
+| POST | `/api/webhooks/sepay` | SePay: lưu transaction + set order PAID nếu khớp orderNumber |
+| POST | `/api/webhooks/facebook` | Fanpage inbox: lưu message (idempotent theo `id_new_message`) |
+
+Trả format GỐC của nhà cung cấp (không bọc envelope `{data,...}`).
+⚠️ **URL đổi** so với bản Vercel cũ (`/api/sepay/webhook`, `/api/facebook/webhook`):
+sau khi deploy BE phải cập nhật URL webhook trong dashboard **SePay** và **Facebook
+service** sang `https://<be-domain>/api/webhooks/sepay` · `/facebook`.
+
 ## Deploy (Railway/Render/Fly)
 - Build: `npm run build` · Start: `npm run start:prod` (hoặc dùng `Dockerfile`).
-- Set env: `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `ALLOWED_ORIGINS`, `PORT`.
+- Set env: `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, `FIREBASE_STORAGE_BUCKET`, `ALLOWED_ORIGINS`, `PORT`.
 - ⚠️ Service account là bí mật — chỉ để ở env, không commit.
 
 ## Lộ trình
 - [x] Phase 0: khung + Firebase Admin + Auth/Roles + health.
 - [x] Phase 1: domain **commission** (pilot).
-- [ ] Phase 2+: orders, products, customers, transactions, materials, expenses, users...
-- [ ] Dời webhook/job (sepay, facebook, zalo, gemini/ocr) + cron.
+- [x] Phase 2: products, customers, expenses, transactions, categories, badges, commissionGroups, configurations, users, orders, stockReceipt, admin-db, images.
+- [x] Webhook sepay + facebook.
+- [ ] Job nền còn lại: zalo notify (đang ở FE sau khi gọi API), gemini/ocr, cron.
 - [ ] Siết Firestore rules (sau khi mọi ghi của collection đã qua BE).

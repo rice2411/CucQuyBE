@@ -2,8 +2,9 @@ import { Global, Module } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { loadConfig } from '../config/configuration';
 import { FirestoreService } from './firestore.service';
+import { FIREBASE_ADMIN } from './firebase.constants';
 
-export const FIREBASE_ADMIN = 'FIREBASE_ADMIN';
+export { FIREBASE_ADMIN };
 
 /**
  * Khởi tạo Firebase Admin 1 lần (singleton) từ service account env.
@@ -23,6 +24,7 @@ export const FIREBASE_ADMIN = 'FIREBASE_ADMIN';
             clientEmail: firebase.clientEmail,
             privateKey: firebase.privateKey,
           }),
+          storageBucket: firebase.storageBucket,
         });
       },
     },

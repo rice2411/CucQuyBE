@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as admin from 'firebase-admin';
-import { FIREBASE_ADMIN } from './firebase.module';
+import { FIREBASE_ADMIN } from './firebase.constants';
 
 /** Bọc Firestore Admin — chỗ duy nhất chạm DB. */
 @Injectable()

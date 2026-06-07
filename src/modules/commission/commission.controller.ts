@@ -4,6 +4,7 @@ import { RolesGuard } from '../../auth/roles.guard';
 import { Roles } from '../../auth/roles.decorator';
 import { CurrentUser } from '../../auth/current-user.decorator';
 import { AuthUser, UserRole } from '../../auth/user.types';
+import { ResponseMessage } from '../../common/response-message.decorator';
 import { CommissionService } from './commission.service';
 import { MarkPaidDto } from './dto/mark-paid.dto';
 
@@ -29,6 +30,7 @@ export class CommissionController {
   /** Admin: đánh dấu các đơn đã trả hoa hồng. */
   @Post('mark-paid')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ResponseMessage('Đã đánh dấu đã trả hoa hồng')
   async markPaid(@Body() dto: MarkPaidDto) {
     await this.service.setPaidStatus(dto.orderIds, true);
     return { ok: true, count: dto.orderIds.length };
@@ -37,6 +39,7 @@ export class CommissionController {
   /** Admin: đặt lại các đơn về chưa trả. */
   @Post('mark-pending')
   @Roles(UserRole.SUPER_ADMIN, UserRole.ADMIN)
+  @ResponseMessage('Đã đặt lại thành chưa trả')
   async markPending(@Body() dto: MarkPaidDto) {
     await this.service.setPaidStatus(dto.orderIds, false);
     return { ok: true, count: dto.orderIds.length };

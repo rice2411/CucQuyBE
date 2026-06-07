@@ -3,11 +3,11 @@ import {
   Catch,
   ExceptionFilter,
   HttpException,
-  HttpStatus,
   Logger,
 } from '@nestjs/common';
+import { HttpStatusCode, messageForStatus } from './http-status';
 
-/** Chuẩn hoá lỗi về JSON { statusCode, message, path }. */
+/** Chuẩn hoá lỗi về JSON { data, message, statusCode, success, path }. */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger('Exception');
@@ -20,9 +20,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+        : HttpStatusCode.INTERNAL_SERVER_ERROR;
 
-    let message: unknown = 'Lỗi máy chủ';
+    let message: unknown = messageForStatus(status);
     if (exception instanceof HttpException) {
       const r = exception.getResponse();
       message = typeof r === 'string' ? r : (r as { message?: unknown }).message ?? r;
@@ -32,8 +32,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     }
 
     res.status(status).json({
-      statusCode: status,
+      data: null,
       message,
+      statusCode: status,
+      success: false,
       path: req.url,
     });
   }
