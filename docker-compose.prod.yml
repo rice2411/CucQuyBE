@@ -5,9 +5,13 @@
 #
 # Cần cùng thư mục: .env (điền đủ secret) + service_account.json
 
+name: cucquy
+
 services:
   backend:
     build: .
+    image: cucquy-backend:latest
+    container_name: cucquy-backend
     env_file:
       - .env
     ports:
