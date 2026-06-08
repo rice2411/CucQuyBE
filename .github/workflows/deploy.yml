@@ -1,0 +1,37 @@
+name: Deploy Backend
+
+# Chạy khi push lên main. Muốn deploy thủ công: thêm workflow_dispatch (đã có bên dưới).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}      # cho phép bấm "Run workflow" thủ công trên GitHub
+
+jobs:
+  # 1) CI — kiểm tra code biên dịch được (không đụng server)
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npx tsc --noEmit       # lỗi type → dừng, KHÔNG deploy
+
+  # 2) CD — SSH vào VPS, kéo code mới + rebuild container
+  deploy:
+    needs: ci                       # chỉ chạy khi CI xanh
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd /root/cucquy/backend
+            git pull origin main
+            docker compose -f docker-compose.prod.yml up -d --build
+            docker image prune -f
