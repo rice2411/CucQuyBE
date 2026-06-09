@@ -1,5 +1,6 @@
 # BE production trên VPS — KÉO image dựng sẵn từ GHCR (không build tại chỗ).
 # Chỉ bind 127.0.0.1:3000 → nginx host reverse-proxy ra ngoài (HTTPS).
+# Redis chạy cùng (cache role/reference/report), chỉ trong mạng nội bộ compose.
 #
 #   docker compose -f docker-compose.prod.yml pull
 #   docker compose -f docker-compose.prod.yml up -d
@@ -9,12 +10,24 @@
 name: cucquy
 
 services:
+  redis:
+    image: redis:alpine
+    container_name: cucquy-redis
+    # Giới hạn 64MB + xoá key cũ nhất khi đầy → an toàn cho VPS RAM thấp.
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
   backend:
     image: ghcr.io/cucquy/cucquy-backend:latest
     pull_policy: always
     container_name: cucquy-backend
     env_file:
       - .env
+    environment:
+      # BE nối Redis qua tên service trong mạng compose (không lộ ra ngoài).
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
     ports:
       - "127.0.0.1:3000:3000"
     volumes:

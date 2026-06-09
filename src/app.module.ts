@@ -1,6 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { FirebaseModule } from './firebase/firebase.module';
+import { RedisModule } from './redis/redis.module';
 import { HealthController } from './health/health.controller';
 import { CommissionModule } from './modules/commission/commission.module';
 import { ProductsModule } from './modules/products/products.module';
@@ -29,6 +30,7 @@ import { LoggingMiddleware } from './modules/request-logs/logging.middleware';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     FirebaseModule,
+    RedisModule,
     CommissionModule,
     ProductsModule,
     CustomersModule,

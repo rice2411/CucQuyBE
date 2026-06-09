@@ -6,8 +6,19 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { FirestoreService } from '../firebase/firestore.service';
+import { RedisService } from '../redis/redis.service';
 import { IS_PUBLIC_KEY } from './roles.decorator';
 import { AuthUser, UserRole } from './user.types';
+
+/** TTL cache hồ sơ user (giây). Đổi role có hiệu lực chậm nhất sau ngần này. */
+const USER_CACHE_TTL = 300;
+export const userCacheKey = (uid: string) => `auth:user:${uid}`;
+
+/** Phần hồ sơ lấy từ Firestore (cache được) — email lấy từ token, không cache. */
+interface CachedProfile {
+  role: UserRole | null;
+  displayName: string | null;
+}
 
 /** Chuẩn hoá role thô từ Firestore về UserRole enum (giống normalizeRole của FE). */
 function normalizeRole(raw: unknown): UserRole | undefined {
@@ -28,6 +39,7 @@ export class FirebaseAuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly firestore: FirestoreService,
+    private readonly redis: RedisService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -51,19 +63,29 @@ export class FirebaseAuthGuard implements CanActivate {
       throw new UnauthorizedException('Token không hợp lệ hoặc đã hết hạn');
     }
 
-    const snap = await this.firestore.collection('users').doc(decoded.uid).get();
-    const data = snap.exists ? (snap.data() as Record<string, unknown>) : {};
+    // Cache hồ sơ user → tránh đọc Firestore users/{uid} trên MỖI request.
+    // Miss/Redis lỗi → đọc Firestore rồi nạp lại cache (TTL ngắn).
+    let profile = await this.redis.get<CachedProfile>(userCacheKey(decoded.uid));
+    if (!profile) {
+      const snap = await this.firestore.collection('users').doc(decoded.uid).get();
+      const data = snap.exists ? (snap.data() as Record<string, unknown>) : {};
+      profile = {
+        role: normalizeRole(data.role) ?? null,
+        displayName:
+          typeof data.customName === 'string'
+            ? data.customName
+            : typeof data.displayName === 'string'
+              ? data.displayName
+              : null,
+      };
+      await this.redis.set(userCacheKey(decoded.uid), profile, USER_CACHE_TTL);
+    }
 
     const user: AuthUser = {
       uid: decoded.uid,
       email: decoded.email,
-      role: normalizeRole(data.role),
-      displayName:
-        typeof data.customName === 'string'
-          ? data.customName
-          : typeof data.displayName === 'string'
-            ? data.displayName
-            : undefined,
+      role: profile.role ?? undefined,
+      displayName: profile.displayName ?? undefined,
     };
     req.user = user;
     return true;

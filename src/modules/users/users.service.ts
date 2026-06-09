@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { FirestoreService } from '../../firebase/firestore.service';
+import { RedisService } from '../../redis/redis.service';
+import { userCacheKey } from '../../auth/firebase-auth.guard';
 import {
   UserData,
   UserRole,
@@ -26,7 +28,10 @@ function asRole(raw: unknown): UserRole {
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly fs: FirestoreService) {}
+  constructor(
+    private readonly fs: FirestoreService,
+    private readonly redis: RedisService,
+  ) {}
 
   /** Map doc Firestore thô → UserData (type-guard mọi field, untrusted). */
   private toUserData(uid: string, r: Record<string, unknown>): UserData {
@@ -133,10 +138,12 @@ export class UsersService {
 
   async updateUserCustomName(uid: string, customName: string): Promise<void> {
     await this.fs.collection(COL).doc(uid).set({ customName }, { merge: true });
+    await this.redis.del(userCacheKey(uid)); // displayName đổi → bỏ cache
   }
 
   async updateUserRole(uid: string, role: UserRole): Promise<void> {
     await this.fs.collection(COL).doc(uid).set({ role }, { merge: true });
+    await this.redis.del(userCacheKey(uid)); // role đổi → bỏ cache để có hiệu lực ngay
   }
 
   /**
