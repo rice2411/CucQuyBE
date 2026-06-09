@@ -1,4 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
+import { QUEUE_NOTIFICATIONS } from '../../queue/queue.constants';
 
 const ZALO_ENDPOINT = {
   sendImageToGroup: '/zalo/sendImageToGroupZalo/2',
@@ -24,7 +27,29 @@ export interface ZaloSendPayload {
 
 @Injectable()
 export class ZaloService {
-  async send(payload: ZaloSendPayload): Promise<{ ok: true }> {
+  private readonly logger = new Logger(ZaloService.name);
+
+  constructor(
+    @InjectQueue(QUEUE_NOTIFICATIONS) private readonly queue: Queue,
+  ) {}
+
+  /**
+   * Đẩy job gửi Zalo vào queue → trả ngay (worker gửi + retry). Nếu queue/Redis
+   * lỗi thì gửi thẳng (deliver) để không mất thông báo.
+   */
+  async send(payload: ZaloSendPayload): Promise<{ ok: true; queued?: boolean }> {
+    try {
+      await this.queue.add('zalo', payload);
+      return { ok: true, queued: true };
+    } catch (err) {
+      this.logger.warn(`Enqueue Zalo thất bại, gửi trực tiếp: ${String(err)}`);
+      await this.deliver(payload);
+      return { ok: true };
+    }
+  }
+
+  /** Gửi thật tới Zalo. Lỗi → throw để BullMQ retry. */
+  async deliver(payload: ZaloSendPayload): Promise<void> {
     const message = payload?.message ?? '';
     const baseUrl = String(process.env.ZALO_URL ?? '').trim();
     const shopCode = String(process.env.ZALO_SHOP_CODE ?? '').trim();
@@ -79,7 +104,5 @@ export class ZaloService {
         }
       }),
     );
-
-    return { ok: true };
   }
 }

@@ -1,5 +1,7 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { BullModule } from '@nestjs/bullmq';
+import { bullConnection } from './queue/queue.constants';
 import { FirebaseModule } from './firebase/firebase.module';
 import { RedisModule } from './redis/redis.module';
 import { HealthController } from './health/health.controller';
@@ -31,6 +33,16 @@ import { LoggingMiddleware } from './modules/request-logs/logging.middleware';
     ConfigModule.forRoot({ isGlobal: true }),
     FirebaseModule,
     RedisModule,
+    // BullMQ — hàng đợi job (gửi Zalo, xử webhook) chạy nền + retry. Dùng Redis.
+    BullModule.forRoot({
+      connection: bullConnection(),
+      defaultJobOptions: {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 3000 },
+        removeOnComplete: 100,
+        removeOnFail: 1000,
+      },
+    }),
     CommissionModule,
     ProductsModule,
     CustomersModule,

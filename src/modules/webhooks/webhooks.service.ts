@@ -21,6 +21,19 @@ export class WebhooksService {
       return { status: 400, payload: { error: 'Invalid webhook data' } };
     }
 
+    // Chống trùng: SePay có thể gửi lặp / BullMQ retry → không tạo transaction 2 lần.
+    const dup = await this.fs
+      .collection('transactions')
+      .where('sepayId', '==', body.id)
+      .limit(1)
+      .get();
+    if (!dup.empty) {
+      return {
+        status: 200,
+        payload: { success: true, duplicate: true, transactionId: body.id },
+      };
+    }
+
     const orderNumber = extractFormattedOrderCode(body.description);
     const now = admin.firestore.Timestamp.now();
 
