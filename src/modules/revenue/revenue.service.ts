@@ -4,10 +4,14 @@ import { ExpensesService } from '../expenses/expenses.service';
 import { TransactionsService } from '../transactions/transactions.service';
 import { StockReceiptsService } from '../stock-receipts/stock-receipts.service';
 import { CommissionService } from '../commission/commission.service';
+import { RedisService } from '../../redis/redis.service';
 import { Expense } from '../expenses/expenses.types';
 import { Transaction } from '../transactions/transactions.types';
 import { SavedStockReceiptSummary } from '../stock-receipts/stock-receipts.types';
 import { RevenuePoint, RevenueReport } from './revenue.types';
+
+/** TTL cache báo cáo doanh thu (giây). */
+const REPORT_TTL = 120;
 
 /** Shape tối thiểu của đơn cần cho báo cáo (orders + commissionOrders). */
 interface RevenueOrder {
@@ -99,10 +103,17 @@ export class RevenueService {
     private readonly transactions: TransactionsService,
     private readonly stockReceipts: StockReceiptsService,
     private readonly commission: CommissionService,
+    private readonly redis: RedisService,
   ) {}
 
   /** Báo cáo doanh thu trong kỳ — tự fetch mọi nguồn & tính (port từ FE computeRevenueReport). */
   async getReport(fromISO: string, toISO: string): Promise<RevenueReport> {
+    // Report nặng (gộp 5 collection + tính) → cache TTL ngắn theo kỳ. Dữ liệu
+    // đổi sẽ phản ánh chậm nhất sau REPORT_TTL giây (chấp nhận được cho báo cáo).
+    const cacheKey = `report:revenue:${fromISO}:${toISO}`;
+    const cached = await this.redis.get<RevenueReport>(cacheKey);
+    if (cached) return cached;
+
     const [orders, summaries, stockReceipts, expenses, transactions] = await Promise.all([
       this.orders.fetchOrders(),
       this.commission.getAllSummaries(),
@@ -139,7 +150,7 @@ export class RevenueService {
       .filter((tr) => tr.transferType === 'in' && within(tr.transactionDate, from, to))
       .reduce((s, tr) => s + (tr.transferAmount ?? 0), 0);
 
-    return {
+    const report: RevenueReport = {
       totalRevenue,
       orderCount: revOrders.length,
       totalCommission,
@@ -160,5 +171,7 @@ export class RevenueService {
       ),
       costBreakdown: { stockIn: totalStockIn, commission: totalCommission, expenses: totalExpenses },
     };
+    await this.redis.set(cacheKey, report, REPORT_TTL);
+    return report;
   }
 }

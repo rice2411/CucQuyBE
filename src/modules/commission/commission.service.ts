@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import * as admin from 'firebase-admin';
 import { FirestoreService } from '../../firebase/firestore.service';
+import { RedisService } from '../../redis/redis.service';
 import {
   CollaboratorCommissionSummary,
   CommissionGroup,
@@ -20,6 +21,10 @@ interface ItemCommissionInfo {
   rate: number;
 }
 const ZERO_ITEM: ItemCommissionInfo = { amount: 0, groupName: '', groupQty: 0, rate: 0 };
+
+/** Cache thống kê hoa hồng tất cả CTV. */
+const SUMMARIES_CACHE_KEY = 'report:commission:summaries';
+const SUMMARIES_TTL = 120;
 
 const monthKeyOf = (dateStr?: string): string => {
   if (!dateStr) return 'unknown';
@@ -43,7 +48,10 @@ const groupOfProduct = (
 
 @Injectable()
 export class CommissionService {
-  constructor(private readonly fs: FirestoreService) {}
+  constructor(
+    private readonly fs: FirestoreService,
+    private readonly redis: RedisService,
+  ) {}
 
   // ── Đọc dữ liệu (type-guard) ──────────────────────────────
   private async fetchGroups(): Promise<CommissionGroup[]> {
@@ -225,6 +233,11 @@ export class CommissionService {
 
   // ── API methods ───────────────────────────────────────────
   async getAllSummaries(): Promise<CollaboratorCommissionSummary[]> {
+    // Tính nặng (quét toàn bộ orders của CTV) → cache TTL ngắn. Bị xoá ngay khi
+    // mark paid/pending (setPaidStatus); ngoài ra tự hết hạn sau SUMMARIES_TTL.
+    const cached = await this.redis.get<CollaboratorCommissionSummary[]>(SUMMARIES_CACHE_KEY);
+    if (cached) return cached;
+
     const [groups, products, collaborators] = await Promise.all([
       this.fetchGroups(),
       this.fetchProducts(),
@@ -254,7 +267,9 @@ export class CommissionService {
       if (orders.length === 0) continue;
       summaries.push(this.buildSummary(ctv.uid, ctv.name, orders, groups, products));
     }
-    return summaries.sort((a, b) => b.pendingCommission - a.pendingCommission);
+    const sorted = summaries.sort((a, b) => b.pendingCommission - a.pendingCommission);
+    await this.redis.set(SUMMARIES_CACHE_KEY, sorted, SUMMARIES_TTL);
+    return sorted;
   }
 
   async getMySummary(uid: string, name: string): Promise<CollaboratorCommissionSummary> {
@@ -278,5 +293,7 @@ export class CommissionService {
       }
       await batch.commit();
     }
+    // Trạng thái hoa hồng đổi → bỏ cache summaries để phản ánh ngay.
+    await this.redis.del(SUMMARIES_CACHE_KEY);
   }
 }
