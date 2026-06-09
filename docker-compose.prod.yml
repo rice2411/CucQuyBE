@@ -1,7 +1,8 @@
-# BE production trên VPS — build từ Dockerfile (image gọn, --omit=dev).
+# BE production trên VPS — KÉO image dựng sẵn từ GHCR (không build tại chỗ).
 # Chỉ bind 127.0.0.1:3000 → nginx host reverse-proxy ra ngoài (HTTPS).
 #
-#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
 #
 # Cần cùng thư mục: .env (điền đủ secret) + service_account.json
 
@@ -9,8 +10,8 @@ name: cucquy
 
 services:
   backend:
-    build: .
-    image: cucquy-backend:latest
+    image: ghcr.io/cucquy/cucquy-backend:latest
+    pull_policy: always
     container_name: cucquy-backend
     env_file:
       - .env
