@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { FirebaseModule } from './firebase/firebase.module';
 import { HealthController } from './health/health.controller';
@@ -22,6 +22,8 @@ import { OcrModule } from './modules/ocr/ocr.module';
 import { GeminiModule } from './modules/gemini/gemini.module';
 import { ZaloModule } from './modules/zalo/zalo.module';
 import { RevenueModule } from './modules/revenue/revenue.module';
+import { RequestLogsModule } from './modules/request-logs/request-logs.module';
+import { LoggingMiddleware } from './modules/request-logs/logging.middleware';
 
 @Module({
   imports: [
@@ -47,7 +49,13 @@ import { RevenueModule } from './modules/revenue/revenue.module';
     GeminiModule,
     ZaloModule,
     RevenueModule,
+    RequestLogsModule,
   ],
   controllers: [HealthController],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  // Áp LoggingMiddleware cho mọi route → ghi nhật ký request.
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(LoggingMiddleware).forRoutes('*');
+  }
+}

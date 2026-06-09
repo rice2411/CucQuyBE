@@ -12,6 +12,10 @@ async function bootstrap() {
   const config = loadConfig();
   const app = await NestFactory.create(AppModule, { bufferLogs: false });
 
+  // Sau nginx reverse proxy: tin X-Forwarded-For để req.ip ra IP thật của client
+  // (không phải IP của nginx). Cần cho hệ thống nhật ký request.
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.enableCors({
     origin: config.allowedOrigins.length ? config.allowedOrigins : true,
     credentials: true,
