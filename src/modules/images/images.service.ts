@@ -13,7 +13,12 @@ export class ImagesService {
     const bucket = admin.storage().bucket();
     const f = bucket.file(path);
     await f.save(file.buffer, {
-      metadata: { contentType: file.mimetype },
+      metadata: {
+        contentType: file.mimetype,
+        // Ảnh có tên path duy nhất → cache vĩnh viễn ở trình duyệt/CDN, lần sau
+        // không tải lại (immutable). 1 năm = 31536000s.
+        cacheControl: 'public, max-age=31536000, immutable',
+      },
       resumable: false,
     });
     await f.makePublic();
